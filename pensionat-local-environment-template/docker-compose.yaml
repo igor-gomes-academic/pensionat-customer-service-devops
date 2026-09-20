@@ -1,0 +1,212 @@
+name: pensionat
+
+services:
+  booking-db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${BOOKING_DB_NAME}
+      MYSQL_USER: ${BOOKING_DB_USERNAME}
+      MYSQL_PASSWORD: ${BOOKING_DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${BOOKING_DB_ROOT_PASSWORD}
+      TZ: ${TZ}
+    ports:
+      - "${BOOKING_DB_HOST_PORT}:3306"
+    volumes:
+      - booking_db_data:/var/lib/mysql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - MYSQL_PWD=$${MYSQL_PASSWORD} mysqladmin ping -h localhost -u$${MYSQL_USER} --silent
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - pensionat-network
+
+  booking-test-db:
+    image: mysql:8.4
+    profiles:
+      - test
+    environment:
+      MYSQL_DATABASE: pensionat_booking_test_db
+      MYSQL_USER: ${BOOKING_DB_USERNAME}
+      MYSQL_PASSWORD: ${BOOKING_DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${BOOKING_DB_ROOT_PASSWORD}
+      TZ: ${TZ}
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - MYSQL_PWD=$${MYSQL_PASSWORD} mysqladmin ping -h localhost -u$${MYSQL_USER} --silent
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 20s
+    networks:
+      - pensionat-network
+
+  customer-db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${CUSTOMER_DB_NAME}
+      MYSQL_USER: ${CUSTOMER_DB_USERNAME}
+      MYSQL_PASSWORD: ${CUSTOMER_DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${CUSTOMER_DB_ROOT_PASSWORD}
+      TZ: ${TZ}
+    ports:
+      - "${CUSTOMER_DB_HOST_PORT}:3306"
+    volumes:
+      - customer_db_data:/var/lib/mysql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - MYSQL_PWD=$${MYSQL_PASSWORD} mysqladmin ping -h localhost -u$${MYSQL_USER} --silent
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - pensionat-network
+
+  customer-test-db:
+    image: mysql:8.4
+    profiles:
+      - test
+    environment:
+      MYSQL_DATABASE: pensionat_customer_test_db
+      MYSQL_USER: ${CUSTOMER_DB_USERNAME}
+      MYSQL_PASSWORD: ${CUSTOMER_DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${CUSTOMER_DB_ROOT_PASSWORD}
+      TZ: ${TZ}
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - MYSQL_PWD=$${MYSQL_PASSWORD} mysqladmin ping -h localhost -u$${MYSQL_USER} --silent
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 20s
+    networks:
+      - pensionat-network
+
+  booking-service:
+    build:
+      context: ./pensionat-booking-backend-devops
+      dockerfile: Dockerfile
+    image: pensionat-booking-backend-devops:local
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: 8080
+      DB_HOST: booking-db
+      DB_PORT: 3306
+      DB_NAME: ${BOOKING_DB_NAME}
+      DB_USERNAME: ${BOOKING_DB_USERNAME}
+      DB_PASSWORD: ${BOOKING_DB_PASSWORD}
+      CUSTOMER_SERVICE_URL: http://customer-service:8081
+    ports:
+      - "${BOOKING_SERVICE_HOST_PORT}:8080"
+    depends_on:
+      booking-db:
+        condition: service_healthy
+    networks:
+      - pensionat-network
+
+  customer-service:
+    build:
+      context: ./pensionat-customer-service-devops
+      dockerfile: Dockerfile
+    image: pensionat-customer-service-devops:local
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: 8081
+      DB_HOST: customer-db
+      DB_PORT: 3306
+      DB_NAME: ${CUSTOMER_DB_NAME}
+      DB_USERNAME: ${CUSTOMER_DB_USERNAME}
+      DB_PASSWORD: ${CUSTOMER_DB_PASSWORD}
+      BOOKING_SERVICE_URL: http://booking-service:8080
+    ports:
+      - "${CUSTOMER_SERVICE_HOST_PORT}:8081"
+    depends_on:
+      customer-db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -q -O /dev/null http://localhost:8081/api/customers || exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 20s
+    networks:
+      - pensionat-network
+
+  frontend:
+    build:
+      context: ./pensionat-booking-frontend-devops
+      dockerfile: Dockerfile
+    image: pensionat-booking-frontend-devops:local
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${FRONTEND_HOST_PORT}:3000"
+    depends_on:
+      booking-service:
+        condition: service_started
+      customer-service:
+        condition: service_healthy
+    networks:
+      - pensionat-network
+
+  booking-tests:
+    profiles:
+      - test
+    build:
+      context: ./pensionat-booking-backend-devops
+      dockerfile: Dockerfile
+      target: test
+    environment:
+      DB_HOST: booking-test-db
+      DB_PORT: 3306
+      DB_NAME: pensionat_booking_test_db
+      DB_USERNAME: ${BOOKING_DB_USERNAME}
+      DB_PASSWORD: ${BOOKING_DB_PASSWORD}
+      CUSTOMER_SERVICE_URL: http://customer-service:8081
+    depends_on:
+      booking-test-db:
+        condition: service_healthy
+      customer-service:
+        condition: service_healthy
+    networks:
+      - pensionat-network
+    restart: "no"
+  customer-tests:
+    profiles:
+      - test
+    build:
+      context: ./pensionat-customer-service-devops
+      dockerfile: Dockerfile
+      target: test
+    environment:
+      DB_HOST: customer-test-db
+      DB_PORT: 3306
+      DB_NAME: pensionat_customer_test_db
+      DB_USERNAME: ${CUSTOMER_DB_USERNAME}
+      DB_PASSWORD: ${CUSTOMER_DB_PASSWORD}
+      BOOKING_SERVICE_URL: http://booking-service:8080
+    depends_on:
+      customer-test-db:
+        condition: service_healthy
+    networks:
+      - pensionat-network
+    restart: "no"
+
+volumes:
+  booking_db_data:
+  customer_db_data:
+
+networks:
+  pensionat-network:
+    driver: bridge
