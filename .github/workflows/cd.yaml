@@ -83,7 +83,7 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/pensionat-customer-service-devops:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/pensionat-customer-service-devops:build-${{ github.event.workflow_run.run_number }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/pensionat-customer-service-devops:1.0.${{ github.run_number }}
           labels: |
             org.opencontainers.image.revision=${{ github.event.workflow_run.head_sha }}
             org.opencontainers.image.source=${{ github.event.workflow_run.repository.html_url }}
