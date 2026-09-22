@@ -14,6 +14,45 @@ The application handles customer registration, account management, login and dat
 
 ---
 
+## CI/CD and Deployment
+
+The CI/CD pipeline follows this process:
+
+- Runs the automated tests on every push to `main`
+- Continues only after CI completes successfully
+- Builds and publishes a new Docker image only when image-related files have changed
+- Publishes both `latest` and incremental `1.0.x` tags
+- Uses `latest` for automatic Railway deployment
+- Preserves versioned tags for traceability and rollback
+
+### Pipeline Workflow
+
+```text
+Push to main
+     │
+     ▼
+GitHub Actions CI
+     │
+     │ Build and automated tests
+     ▼
+GitHub Actions CD
+     │
+     │ Publish latest and versioned tags
+     ▼
+Docker Hub
+     │
+     │ Deploy latest
+     ▼
+Railway
+```
+
+### Published Resources
+
+- **Docker Hub:** [View published image tags](https://hub.docker.com/r/igor88gomes/pensionat-customer-service-devops/tags)
+- **Deployment:** [View deployed Customer Service](https://customer-service-production-d027.up.railway.app/api/customers)
+
+---
+
 ## Architecture Overview
 
 ```text
