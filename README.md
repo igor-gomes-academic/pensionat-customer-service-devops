@@ -183,7 +183,7 @@ pensionat/
 
 Copy `docker-compose.yaml` and `.env.example` from `pensionat-customer-service-devops/pensionat-local-environment-template` into the new parent directory. Keep the template directory in the Customer Service repository as the versioned source of the shared environment configuration.
 
-Rename the copied `.env.example` file to `.env`. Review the configuration and replace the example passwords with your own secure values before starting the environment.
+Rename the copied `.env.example` file to `.env` and provide secure values for all empty password variables before starting the environment.
 
 The final structure should be:
 
